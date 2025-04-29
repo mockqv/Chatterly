@@ -4,7 +4,7 @@ export default function PublicLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <></>
+    <>{children}</>
     // <div>
     //     <h1>Public</h1>
     //     {children}
