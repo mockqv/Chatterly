@@ -1,40 +1,53 @@
 'use client'
 
+import Image from 'next/image'
 import Providers from '@/enums/providers'
 import handleLoginWithProvider from '@/services/providerLogin'
-import { supabase } from '@/utils/supabase'
 import { useRouter } from 'next/navigation'
+import { FaGithub, FaDiscord } from 'react-icons/fa'
+import googleIcon from '../../../assets/img/Google-Icon.jpg'
 
 export default function SignIn() {
   const router = useRouter()
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-      <h1 className="text-2xl font-bold mb-6">Chatterly!</h1>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#1a1a1a] space-y-4">
+      {/* Título */}
+      <h1 className="text-5xl font-extrabold bg-gradient-to-r from-pink-500 to-fuchsia-500 bg-clip-text text-transparent leading-[1.2]">
+        Chatterly!
+      </h1>
 
-      {/* Botão de Login com Google */}
-      <button
-        onClick={() => handleLoginWithProvider('google' as Providers.GOOGLE)}
-        className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded w-64"
-      >
-        Entrar com Google
-      </button>
+      {/* Caixa de login */}
+      <div className="bg-[#2a2a2a] px-10 pt-10 pb-14 rounded-2xl shadow-lg flex flex-col items-center space-y-5 w-[420px]">
+        {/* Botões */}
 
-      {/* Botão de Login com GitHub */}
-      <button
-        onClick={() => handleLoginWithProvider('github' as Providers.GITHUB)}
-        className="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded w-64"
-      >
-        Entrar com GitHub
-      </button>
+        {/* Google */}
+        <button
+          onClick={() => handleLoginWithProvider('google' as Providers.GOOGLE)}
+          className="flex items-center justify-center gap-4 bg-white text-black font-semibold py-4 px-6 rounded-md w-full hover:bg-gray-100 cursor-pointer transition"
+        >
+          <Image src={googleIcon} alt="Google" width={28} height={28} className="rounded-sm" />
+          Entrar com Google
+        </button>
 
-      {/* Botão de Login com Discord */}
-      <button
-        onClick={() => handleLoginWithProvider('discord' as Providers.DISCORD)}
-        className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded w-64"
-      >
-        Entrar com Discord
-      </button>
+        {/* GitHub */}
+        <button
+          onClick={() => handleLoginWithProvider('github' as Providers.GITHUB)}
+          className="flex items-center justify-center gap-4 bg-[#171515] text-white font-semibold py-4 px-6 rounded-md w-full hover:bg-[#333333] cursor-pointer transition"
+        >
+          <FaGithub className="text-2xl" />
+          Entrar com GitHub
+        </button>
+
+        {/* Discord */}
+        <button
+          onClick={() => handleLoginWithProvider('discord' as Providers.DISCORD)}
+          className="flex items-center justify-center gap-4 bg-[#5865F2] text-white font-semibold py-4 px-6 rounded-md w-full hover:bg-[#4752c4] cursor-pointer transition"
+        >
+          <FaDiscord className="text-2xl" />
+          Entrar com Discord
+        </button>
+      </div>
     </div>
   )
 }
