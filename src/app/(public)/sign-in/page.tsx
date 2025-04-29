@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Providers from '@/enums/providers'
 import handleLoginWithProvider from '@/services/providerLogin'
 import { useRouter } from 'next/navigation'
-import { FaGithub, FaDiscord } from 'react-icons/fa'
+import { FaGithub, FaDiscord, FaXTwitter } from 'react-icons/fa6'
 import googleIcon from '../../../assets/img/Google-Icon.jpg'
 
 export default function SignIn() {
@@ -19,8 +19,6 @@ export default function SignIn() {
 
       {/* Caixa de login */}
       <div className="bg-[#2a2a2a] px-10 pt-10 pb-14 rounded-2xl shadow-lg flex flex-col items-center space-y-5 w-[420px]">
-        {/* Botões */}
-
         {/* Google */}
         <button
           onClick={() => handleLoginWithProvider('google' as Providers.GOOGLE)}
@@ -47,6 +45,16 @@ export default function SignIn() {
           <FaDiscord className="text-2xl" />
           Entrar com Discord
         </button>
+
+        {/* X (Twitter) */}
+        {/* <button
+          onClick={() => handleLoginWithProvider('twitter' as Providers.TWITTER)}
+          className="flex items-center justify-center gap-4 bg-black text-white font-semibold py-4 px-6 rounded-md w-full hover:bg-[#333333] cursor-pointer transition"
+        >
+          <FaXTwitter className="text-2xl" />
+          Entrar com X
+        </button> */}
+        
       </div>
     </div>
   )

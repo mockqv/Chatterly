@@ -1,7 +1,7 @@
 import Providers from "@/enums/providers"
 import { supabase } from "@/utils/supabase"
 
-type Provider = Providers.DISCORD | Providers.GITHUB | Providers.GOOGLE
+type Provider = Providers.DISCORD | Providers.GITHUB | Providers.GOOGLE | Providers.TWITTER
 
 export default async function handleLoginWithProvider(provider: Provider) {
     try{
