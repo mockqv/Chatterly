@@ -3,6 +3,7 @@ import { type MiddlewareConfig, type NextRequest, NextResponse } from "next/serv
 const publicRoutes = [
     {path: '/sign-in', whenAuthenticated: 'redirect'},
     {path: '/register', whenAuthenticated: 'redirect'},
+    {path: '/auth/callback', whenAuthenticated: 'redirect'},
     //{path: '/example', whenAuthenticated: 'next'} // Example of a route that doesn't redirect,
 ] as const;
 

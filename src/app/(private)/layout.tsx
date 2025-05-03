@@ -4,10 +4,11 @@ export default function PrivateLayout({
     children: React.ReactNode;
   }>) {
     return (
-      <div>
-          <h1>Private</h1>
-          {children}
-      </div>
+      <>{children}</>
+      // <div>
+      //     <h1>Private</h1>
+      //     {children}
+      // </div>
     );
   }
   
