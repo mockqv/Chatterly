@@ -18,9 +18,8 @@ export default function AuthCallback() {
         return
       }
 
-      const token = data.session.access_token
+      Cookies.set('token', 'enabled')
 
-      Cookies.set('token', token)
 
       router.push('/')
     }
