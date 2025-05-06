@@ -179,25 +179,58 @@ export default function MessagesPage() {
   }, []);
 
   const handleSendMessage = async () => {
+    console.log("handleSendMessage called");
+
     if (!newMessage.trim() || !selectedChannel?.id || !currentUser?.id) {
          console.warn("Cannot send message: empty, no channel, or no user.");
          return;
     }
 
-    console.log("Sending message to channel:", selectedChannel.id);
+    console.log("handleSendMessage passed initial checks");
 
-    const { error } = await supabase.from('messages').insert({
-      content: newMessage,
-      channel_id: selectedChannel.id,
-      sender_id: currentUser.id,
-    });
+    const messageContent = newMessage.trim();
+    const channelId = selectedChannel.id;
+    const senderId = currentUser.id;
+    const timestamp = new Date().toISOString();
+
+    const tempMessageId = `temp-${Date.now()}-${Math.random()}`;
+    const optimisticMessage: Message = {
+        id: tempMessageId,
+        content: messageContent,
+        created_at: timestamp,
+        sender_id: senderId,
+        channel_id: channelId,
+        profiles: {
+            id: senderId,
+            full_name: currentUser.full_name,
+            avatar_url: currentUser.avatar_url,
+        },
+        user_metadata: {
+             id: senderId,
+             full_name: currentUser.full_name,
+             avatar_url: currentUser.avatar_url,
+        }
+    };
+
+    console.log("Optimistically adding message:", optimisticMessage);
+    setMessages((prevMessages) => [...prevMessages, optimisticMessage]);
+
+    setNewMessage('');
+
+    console.log("Sending message to channel (to DB):", channelId);
+
+    const { data, error } = await supabase.from('messages').insert({
+      content: messageContent,
+      channel_id: channelId,
+      sender_id: senderId,
+    }).select('id').single();
 
     if (error) {
-        console.error("Error sending message:", error);
+        console.error("Error inserting message into DB:", error);
         alert(`Failed to send message: ${error.message}`);
+        setMessages((prevMessages) => prevMessages.filter(msg => msg.id !== tempMessageId));
     } else {
-        setNewMessage('');
-        console.log("Message sent successfully.");
+        console.log("Message inserted into DB successfully. Real ID:", data?.id);
     }
   };
 
@@ -305,7 +338,6 @@ export default function MessagesPage() {
           console.error("Error fetching Supabase session:", e);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const { data: newChannelData, error: createChannelError } = await supabase
         .from('channels')
@@ -467,47 +499,58 @@ export default function MessagesPage() {
         table: 'messages',
         filter: `channel_id=eq.${selectedChannel.id}`,
       }, (payload) => {
-         console.log('New message received (realtime):', payload);
-         if (payload.new.sender_id === currentUser.id) {
-             console.log("Ignoring echoed message from current user.");
-             return;
+           console.log(">>> EVENTO REALTIME RECEBIDO! <<<", payload);
+           console.log('New message received (realtime):', payload);
+           if (payload.new.sender_id === currentUser.id) {
+               console.log("Ignoring echoed message from current user.");
+               return;
+           }
+
+           console.log("Processing non-echoed message");
+
+           supabase
+             .from('messages')
+             .select(`
+               *,
+               profiles (
+                 id,
+                 full_name,
+                 avatar_url
+               )
+             `)
+             .eq('id', payload.new.id)
+             .single()
+             .then(({ data: newMessageData, error }) => {
+                 console.log("Fetch message details result:", { data: newMessageData, error });
+                 if (error) {
+                     console.error("Error fetching new message for realtime update:", error);
+                     return;
+                 }
+                 if (newMessageData) {
+                     const formattedMessage: Message = {
+                         ...newMessageData,
+                         profiles: newMessageData.profiles || null
+                     };
+                     console.log("Adding message to state:", formattedMessage);
+                     setMessages((prevMessages) => [...prevMessages, formattedMessage]);
+                     console.log("State update attempted.");
+                 } else {
+                     console.warn("Fetched new message data is null or undefined.");
+                 }
+             })
+             .catch(catchError => {
+                 console.error("Catch block error fetching/processing new message:", catchError);
+             });
+        })
+        .subscribe();
+
+      return () => {
+         console.log(`Unsubscribing from channel: messages_channel_${selectedChannel.id}`);
+         if (subscription) {
+            supabase.removeChannel(subscription);
          }
-
-         supabase
-           .from('messages')
-           .select(`
-             *,
-             profiles (
-               id,
-               full_name,
-               avatar_url
-             )
-           `)
-           .eq('id', payload.new.id)
-           .single()
-           .then(({ data: newMessageData, error }) => {
-               if (error) {
-                   console.error("Error fetching new message for realtime update:", error);
-                   return;
-               }
-               if (newMessageData) {
-                   const formattedMessage: Message = {
-                       ...newMessageData,
-                       profiles: newMessageData.profiles || null
-                   };
-                   setMessages((prevMessages) => [...prevMessages, formattedMessage]);
-               }
-           });
-      })
-      .subscribe();
-
-    return () => {
-       console.log(`Unsubscribing from channel: messages_channel_${selectedChannel.id}`);
-       if (subscription) {
-          supabase.removeChannel(subscription);
-       }
-    };
-  }, [selectedChannel?.id, currentUser]);
+      };
+    }, [selectedChannel?.id, currentUser]);
 
   useEffect(() => {
       if (messagesEndRef.current && messages.length > 0) {
