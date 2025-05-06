@@ -4,6 +4,7 @@ const publicRoutes = [
     {path: '/sign-in', whenAuthenticated: 'redirect'},
     {path: '/register', whenAuthenticated: 'redirect'},
     {path: '/auth/callback', whenAuthenticated: 'redirect'},
+    {path: '/Chatterly-WebIcon.ico', whenAuthenticated: 'next'},
     //{path: '/example', whenAuthenticated: 'next'} // Example of a route that doesn't redirect,
 ] as const;
 
@@ -48,6 +49,6 @@ export const config: MiddlewareConfig = {
      * - _next/image (image optimization files)
      * - favicon.ico, sitemap.xml, robots.txt (metadata files)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|Chatterly-WebIcon.ico).*)',
     ],
 }
