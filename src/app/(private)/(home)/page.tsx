@@ -304,8 +304,8 @@ export default function MessagesPage() {
       } catch (e) {
           console.error("Error fetching Supabase session:", e);
       }
-      // >>> Fim dos logs de diagnóstico <<<
 
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const { data: newChannelData, error: createChannelError } = await supabase
         .from('channels')
