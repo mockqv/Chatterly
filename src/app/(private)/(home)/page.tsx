@@ -201,7 +201,7 @@ export default function MessagesPage() {
     }
   };
 
-  const handleSelectUserChannel = async (user: UserMetadata) => {
+  const handleSelectUserChannel = useCallback(async (user: UserMetadata) => {
     if (!currentUser?.id) {
       console.error("Current user not loaded yet, cannot select/create channel.");
       return;
@@ -213,25 +213,106 @@ export default function MessagesPage() {
     console.log(`Attempting to select or create channel with user: ${targetUserId}`);
     setIsSearching(false);
     setSearchQuery('');
+    setSearchResults([]);
 
-    const existingChannel = channels.find(channel => {
-        const memberIds = channel.members
-            ?.filter(member => member && member.user_id)
-            .map(member => member.user_id) || [];
-        return memberIds.length === 2 && memberIds.includes(currentUserId) && memberIds.includes(targetUserId);
-    });
+    const { data: memberships, error: findError } = await supabase
+      .from('channel_members')
+      .select('channel_id, user_id')
+      .in('user_id', [currentUserId, targetUserId])
+      .order('channel_id')
+
+    if (findError) {
+        console.error("Error searching for existing channel members:", findError);
+        alert(`Failed to search for existing channel: ${findError.message}`);
+        return;
+    }
+
+    console.log("Found memberships for both users:", memberships);
+
+    let existingChannelId: string | null = null;
+
+    if (memberships && memberships.length > 0) {
+        const channelMembershipMap = new Map<string, string[]>();
+        for (const membership of memberships) {
+            if (!channelMembershipMap.has(membership.channel_id)) {
+                channelMembershipMap.set(membership.channel_id, []);
+            }
+            channelMembershipMap.get(membership.channel_id)?.push(membership.user_id);
+        }
+
+        for (const [channelId, memberIds] of channelMembershipMap.entries()) {
+            if (memberIds.length === 2 && memberIds.includes(currentUserId) && memberIds.includes(targetUserId)) {
+                existingChannelId = channelId;
+                break;
+            }
+        }
+    }
 
 
-    if (existingChannel) {
-      console.log("Existing channel found:", existingChannel.id);
-      setSelectedChannel(existingChannel);
+    if (existingChannelId) {
+      console.log("Existing channel found via DB check:", existingChannelId);
+
+       const { data: channelData, error: fetchChannelError } = await supabase
+          .from('channels')
+          .select(`
+            id,
+            last_message,
+            last_message_at,
+            created_at,
+            members:channel_members (
+              user_id,
+              profiles (
+                id,
+                full_name,
+                avatar_url
+              )
+            )
+          `)
+          .eq('id', existingChannelId)
+          .single() as any;
+
+      if (fetchChannelError || !channelData) {
+           console.error("Error fetching existing channel details:", fetchChannelError);
+           alert(`Failed to load existing channel details: ${fetchChannelError?.message || "Unknown error"}`);
+           setSelectedChannel(null);
+           return;
+      }
+
+       const formattedChannel: Channel = {
+          ...channelData,
+           members: channelData.members?.map((member: any) => ({
+              user_id: member.user_id,
+              profiles: member.profiles || null
+           })) || []
+       };
+
+      setSelectedChannel(formattedChannel);
+      console.log("Selected existing channel:", formattedChannel.id);
+
+      fetchChannels();
+
+
     } else {
-      console.log("No existing channel found, creating new one with user:", targetUserId);
+      console.log("No existing channel found via DB check, creating new one with user:", targetUserId);
+
+      console.log("Checking auth state before creating new channel:");
+      console.log("currentUser ID from hook:", currentUser?.id);
+      try {
+          const session = await supabase.auth.getSession();
+          console.log("Supabase session:", session);
+          console.log("Supabase session user ID:", session?.data?.session?.user?.id);
+      } catch (e) {
+          console.error("Error fetching Supabase session:", e);
+      }
+      // >>> Fim dos logs de diagnóstico <<<
+
+
       const { data: newChannelData, error: createChannelError } = await supabase
         .from('channels')
         .insert({})
         .select('id')
         .single();
+
 
       if (createChannelError || !newChannelData) {
           console.error("Error creating new channel entry:", createChannelError || "No data returned");
@@ -241,6 +322,7 @@ export default function MessagesPage() {
 
       const newChannelId = newChannelData.id;
       console.log("New channel entry created with ID:", newChannelId);
+
 
       const membersToInsert = [
           { channel_id: newChannelId, user_id: currentUserId },
@@ -271,9 +353,9 @@ export default function MessagesPage() {
            ]
        };
        setSelectedChannel(tempNewChannel);
-       setSearchResults([]);
+       console.log("Selected newly created channel:", tempNewChannel.id);
     }
-  };
+  }, [currentUser, fetchChannels]);
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
