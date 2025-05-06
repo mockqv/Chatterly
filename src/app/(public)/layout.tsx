@@ -1,3 +1,12 @@
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Chatterly!',
+  icons: {
+    icon: '/Chatterly-Icon.png',
+  },
+};
+
 export default function PublicLayout({
   children,
 }: Readonly<{
@@ -5,9 +14,5 @@ export default function PublicLayout({
 }>) {
   return (
     <>{children}</>
-    // <div>
-    //     <h1>Public</h1>
-    //     {children}
-    // </div>
   );
 }
