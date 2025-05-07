@@ -558,6 +558,8 @@ export default function MessagesPage() {
                             console.warn("Fetched new message data is null or undefined.");
                         }
                     })
+                    
+                    //@ts-ignore
                     .catch(catchError => {
                         console.error("Catch block error fetching/processing new message:", catchError);
                     });
