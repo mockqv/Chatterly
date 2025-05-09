@@ -34,6 +34,7 @@ export default function Home() {
 
   const handleSelectUserChannel = async (user: UserMetadata) => {
     if (!currentUser?.id) {
+      alert('Please log in to start a conversation.');
       return;
     }
 
@@ -164,16 +165,16 @@ export default function Home() {
       router.push('/login');
     } else {
       console.error("Logout error:", error);
-      alert("Falha ao desconectar.");
+      alert("Failed to disconnect.");
     }
   };
 
   if (userLoading) {
-    return <div className="flex h-screen bg-[#111] text-white items-center justify-center">Carregando usuário...</div>;
+    return <div className="flex h-screen bg-[#111] text-white items-center justify-center">Loading user...</div>;
   }
 
   if (!currentUser) {
-    return <div className="flex h-screen bg-[#111] text-white items-center justify-center">Usuário não autenticado. Por favor, faça login.</div>;
+    return <div className="flex h-screen bg-[#111] text-white items-center justify-center">User not authenticated. Please log in.</div>;
   }
 
   return (
@@ -192,7 +193,7 @@ export default function Home() {
 
         <section className="flex-1 flex flex-col bg-[#222] rounded-r-lg h-full">
           <ChatHeader selectedChannel={selectedChannel} currentUser={currentUser} />
-          
+
           <MessageList
             messages={messages as Message[]}
             messagesLoading={messagesLoading}

@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { Message, Channel, UserMetadata } from '@/interfaces/IHome';
+import React, { useEffect } from 'react'; // Import useEffect
 
 interface MessageListProps {
   messages: Message[];
@@ -16,10 +17,17 @@ export const MessageList = ({
   currentUser,
   messagesEndRef
 }: MessageListProps) => {
+
+  useEffect(() => {
+    if (!messagesLoading && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, messagesLoading, messagesEndRef]);
+
   if (messagesLoading) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500">
-        Carregando mensagens...
+        Loading messages...
       </div>
     );
   }
@@ -27,7 +35,7 @@ export const MessageList = ({
   if (!selectedChannel) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500">
-        Selecione um canal na barra lateral para ver as mensagens.
+        Select a channel from the sidebar to view messages.
       </div>
     );
   }
@@ -38,6 +46,16 @@ export const MessageList = ({
         const isMe = msg.sender_id === currentUser?.id;
         const senderProfile = selectedChannel.members?.find(member => member.user_id === msg.sender_id)?.profiles;
 
+        // Logic to format the timestamp to the user's local time
+        const timestampString = msg.created_at;
+        const date = new Date(timestampString);
+
+        const localTime = date.toLocaleTimeString(navigator.language, {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        // End of timestamp formatting logic
+
         return (
           <div
             key={msg.id}
@@ -47,7 +65,7 @@ export const MessageList = ({
               senderProfile?.avatar_url ? (
                 <Image
                   src={senderProfile.avatar_url}
-                  alt={`${senderProfile.full_name || 'Usuário'}'s Avatar`}
+                  alt={`${senderProfile.full_name || 'User'}'s Avatar`}
                   width={32}
                   height={32}
                   className="rounded-full object-cover border-2 border-pink-500 flex-shrink-0"
@@ -67,12 +85,12 @@ export const MessageList = ({
             >
               {!isMe && selectedChannel.members && selectedChannel.members.length > 2 && (
                 <p className="text-sm font-semibold mb-1 text-pink-300">
-                  {senderProfile?.full_name || 'Usuário Desconhecido'}
+                  {senderProfile?.full_name || 'Unknown User'}
                 </p>
               )}
               <p className="text-sm">{msg.content}</p>
               <p className="text-xs text-gray-300 mt-1 text-right">
-                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {localTime} {/* Display the formatted local time */}
               </p>
             </div>
           </div>
@@ -81,4 +99,4 @@ export const MessageList = ({
       <div ref={messagesEndRef} />
     </div>
   );
-}; 
+};
