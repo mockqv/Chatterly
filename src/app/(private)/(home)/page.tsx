@@ -6,11 +6,11 @@ import { supabase } from '@/utils/supabase';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useChannels } from '@/hooks/useChannels';
 import { useMessages } from '@/hooks/useMessages';
-import { Sidebar } from './components/Sidebar';
-import { ChatHeader } from './components/ChatHeader';
-import { MessageList } from './components/MessageList';
-import { MessageInput } from './components/MessageInput';
-import { UserProfile } from './components/UserProfile';
+import { Sidebar } from '../../../components/Sidebar';
+import { ChatHeader } from '../../../components/ChatHeader';
+import { MessageList } from '../../../components/MessageList';
+import { MessageInput } from '../../../components/MessageInput';
+import { UserProfile } from '../../../components/UserProfile';
 import { Channel, Message, UserMetadata } from '@/interfaces/IHome';
 
 export default function Home() {
@@ -161,7 +161,7 @@ export default function Home() {
 
     if (!error) {
       document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-      router.push('/login');
+      router.push('/sign-in');
     } else {
       console.error("Logout error:", error);
       alert("Falha ao desconectar.");

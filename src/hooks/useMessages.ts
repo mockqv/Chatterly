@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/utils/supabase';
 import { Message, Channel, UserMetadata } from '@/interfaces/IHome';
+import React, { useEffect as useEffectReact } from 'react';
 
 export const useMessages = (selectedChannel: Channel | null, currentUser: UserMetadata | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -56,13 +57,13 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
     const messageContent = newMessage.trim();
     const channelId = selectedChannel.id;
     const senderId = currentUser.id;
-    const timestamp = new Date().toISOString();
+    const tempMessageId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const optimisticTimestamp = new Date().toISOString();
 
-    const tempMessageId = `temp-${Date.now()}-${Math.random()}`;
     const optimisticMessage: Message = {
       id: tempMessageId,
       content: messageContent,
-      created_at: timestamp,
+      created_at: optimisticTimestamp,
       sender_id: senderId,
       channel_id: channelId,
       profiles: {
@@ -70,11 +71,6 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
         full_name: currentUser.full_name,
         avatar_url: currentUser.avatar_url,
       },
-      user_metadata: {
-        id: senderId,
-        full_name: currentUser.full_name,
-        avatar_url: currentUser.avatar_url,
-      }
     };
 
     setMessages((prevMessages) => [...prevMessages, optimisticMessage]);
@@ -86,7 +82,7 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
         channel_id: channelId,
         sender_id: senderId,
       })
-      .select('id')
+      .select('id, created_at')
       .single();
 
     if (messageError) {
@@ -94,11 +90,17 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
       alert(`Failed to send message: ${messageError.message}`);
       setMessages((prevMessages) => prevMessages.filter(msg => msg.id !== tempMessageId));
     } else {
+      setMessages(prevMessages => prevMessages.map(msg =>
+        msg.id === tempMessageId
+          ? { ...msg, id: messageData.id, created_at: messageData.created_at }
+          : msg
+      ));
+
       const { error: channelUpdateError } = await supabase
         .from('channels')
         .update({
           last_message: messageContent,
-          last_message_at: timestamp,
+          last_message_at: new Date().toISOString(),
         })
         .eq('id', channelId);
 
@@ -129,47 +131,44 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
         table: 'messages',
         filter: `channel_id=eq.${selectedChannel.id}`,
       }, (payload) => {
-        if (payload.new.sender_id === currentUser.id) {
-          const isOptimisticallyAdded = messages.some(msg => msg.id === payload.new.id || msg.id.startsWith('temp-'));
-          if (isOptimisticallyAdded) {
-            setMessages(prevMessages => prevMessages.map(msg =>
-              msg.id.startsWith('temp-') && msg.content === payload.new.content && msg.sender_id === payload.new.sender_id && msg.created_at.substring(0, 16) === payload.new.created_at.substring(0, 16)
-                ? { ...msg, id: payload.new.id, created_at: payload.new.created_at, user_metadata: payload.new.profiles || msg.profiles, profiles: payload.new.profiles || msg.profiles }
-                : msg
-            ));
-            return;
-          }
-        }
+        const newMessageFromSubscription = payload.new as any;
+        const messageExists = messages.some(msg => msg.id === newMessageFromSubscription.id);
 
-        supabase
-          .from('messages')
-          .select(`
-            *,
-            profiles (
-              id,
-              full_name,
-              avatar_url
-            )
-          `)
-          .eq('id', payload.new.id)
-          .single()
-          .then(({ data: newMessageData, error }) => {
-            if (error) {
-              console.error("Error fetching new message for realtime update:", error);
-              return;
-            }
-            if (newMessageData) {
-              const formattedMessage: Message = {
-                ...newMessageData,
-                profiles: newMessageData.profiles || null
-              };
-              setMessages((prevMessages) => [...prevMessages, formattedMessage]);
-            }
-          })
-          //@ts-ignore
-          .catch(catchError => {
-            console.error("Catch block error fetching/processing new message:", catchError);
-          });
+        if (!messageExists) {
+          supabase
+            .from('messages')
+            .select(`
+              *,
+              profiles (
+                id,
+                full_name,
+                avatar_url
+              )
+            `)
+            .eq('id', newMessageFromSubscription.id)
+            .single()
+            .then(({ data: newMessageData, error }) => {
+              if (error) {
+                console.error("Error fetching new message for realtime update:", error);
+                return;
+              }
+              if (newMessageData) {
+                const formattedMessage: Message = {
+                  ...newMessageData,
+                  profiles: newMessageData.profiles || null
+                };
+                setMessages((prevMessages) => {
+                  if (!prevMessages.some(msg => msg.id === formattedMessage.id)) {
+                    return [...prevMessages, formattedMessage];
+                  }
+                  return prevMessages;
+                });
+              }
+            })
+            .then(() => {}, (error: Error) => {
+              console.error("Catch block error fetching/processing new message:", error);
+            });
+        }
       })
       .subscribe();
 
@@ -180,11 +179,11 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
     };
   }, [selectedChannel?.id, currentUser, messages]);
 
-  useEffect(() => {
-    if (messagesEndRef.current && messages.length > 0) {
+  useEffectReact(() => {
+    if (messagesEndRef.current && messages.length > 0 && !messagesLoading) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, messagesLoading, messagesEndRef]);
 
   return {
     messages,
@@ -192,4 +191,4 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
     messagesEndRef,
     handleSendMessage
   };
-}; 
+};
