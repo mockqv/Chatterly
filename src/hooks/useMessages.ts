@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/utils/supabase';
 import { Message, Channel, UserMetadata } from '@/interfaces/IHome';
-import React, { useEffect as useEffectReact } from 'react';
 
 export const useMessages = (selectedChannel: Channel | null, currentUser: UserMetadata | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -36,33 +35,53 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
     if (error) {
       console.error(`Error fetching messages for channel ${channelId}:`, error);
       setMessages([]);
-      setMessagesLoading(false);
-      return;
+    } else {
+      const formattedMessages: Message[] = data?.map((msg: any) => ({
+        ...msg,
+        profiles: msg.profiles || null
+      })) || [];
+      setMessages(formattedMessages);
     }
-
-    const formattedMessages: Message[] = data?.map((msg: any) => ({
-      ...msg,
-      profiles: msg.profiles || null
-    })) || [];
-
-    setMessages(formattedMessages);
     setMessagesLoading(false);
   }, []);
 
-  const handleSendMessage = async (newMessage: string) => {
-    if (!newMessage.trim() || !selectedChannel?.id || !currentUser?.id) {
-      return;
-    }
+  const handleSendMessage = async (newMessage: string | File) => {
+    if (!selectedChannel?.id || !currentUser?.id) return;
 
-    const messageContent = newMessage.trim();
+    let contentToSend = '';
     const channelId = selectedChannel.id;
     const senderId = currentUser.id;
     const tempMessageId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const optimisticTimestamp = new Date().toISOString();
 
+    if (newMessage instanceof File) {
+      const fileExt = newMessage.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const filePath = `${channelId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('files')
+        .upload(filePath, newMessage);
+
+      if (uploadError) {
+        alert("Erro ao enviar arquivo.");
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('files')
+        .getPublicUrl(filePath);
+
+      contentToSend = publicUrlData.publicUrl;
+    } else if (typeof newMessage === 'string' && newMessage.trim() !== '') {
+      contentToSend = newMessage.trim();
+    } else {
+      return;
+    }
+
     const optimisticMessage: Message = {
       id: tempMessageId,
-      content: messageContent,
+      content: contentToSend,
       created_at: optimisticTimestamp,
       sender_id: senderId,
       channel_id: channelId,
@@ -78,7 +97,7 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
     const { data: messageData, error: messageError } = await supabase
       .from('messages')
       .insert({
-        content: messageContent,
+        content: contentToSend,
         channel_id: channelId,
         sender_id: senderId,
       })
@@ -96,10 +115,14 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
           : msg
       ));
 
+      const lastMessageText = contentToSend.startsWith('http')
+        ? '[Arquivo]'
+        : contentToSend.substring(0, 100);
+
       const { error: channelUpdateError } = await supabase
         .from('channels')
         .update({
-          last_message: messageContent,
+          last_message: lastMessageText,
           last_message_at: new Date().toISOString(),
         })
         .eq('id', channelId);
@@ -111,7 +134,7 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
   };
 
   useEffect(() => {
-    if (selectedChannel) {
+    if (selectedChannel?.id) {
       fetchMessages(selectedChannel.id);
     } else {
       setMessages([]);
@@ -119,7 +142,7 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
   }, [selectedChannel, fetchMessages]);
 
   useEffect(() => {
-    if (!selectedChannel?.id || !currentUser) {
+    if (!selectedChannel?.id) {
       return;
     }
 
@@ -130,45 +153,32 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
         schema: 'public',
         table: 'messages',
         filter: `channel_id=eq.${selectedChannel.id}`,
-      }, (payload) => {
-        const newMessageFromSubscription = payload.new as any;
-        const messageExists = messages.some(msg => msg.id === newMessageFromSubscription.id);
+      }, async (payload) => {
+        const newMessageFromSubscription = payload.new as Message;
 
-        if (!messageExists) {
-          supabase
-            .from('messages')
-            .select(`
-              *,
-              profiles (
-                id,
-                full_name,
-                avatar_url
-              )
-            `)
-            .eq('id', newMessageFromSubscription.id)
-            .single()
-            .then(({ data: newMessageData, error }) => {
-              if (error) {
-                console.error("Error fetching new message for realtime update:", error);
-                return;
-              }
-              if (newMessageData) {
-                const formattedMessage: Message = {
-                  ...newMessageData,
-                  profiles: newMessageData.profiles || null
-                };
-                setMessages((prevMessages) => {
-                  if (!prevMessages.some(msg => msg.id === formattedMessage.id)) {
-                    return [...prevMessages, formattedMessage];
-                  }
-                  return prevMessages;
-                });
-              }
-            })
-            .then(() => {}, (error: Error) => {
-              console.error("Catch block error fetching/processing new message:", error);
-            });
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .eq('id', newMessageFromSubscription.sender_id)
+          .single();
+
+        if (profileError) {
+          console.error("Error fetching profile for realtime message:", profileError);
+          return;
         }
+
+        const finalMessage: Message = {
+          ...newMessageFromSubscription,
+          profiles: profileData
+        };
+
+        setMessages((prevMessages) => {
+          const messageExists = prevMessages.some(msg => msg.id === finalMessage.id);
+          if (!messageExists) {
+            return [...prevMessages, finalMessage];
+          }
+          return prevMessages;
+        });
       })
       .subscribe();
 
@@ -177,13 +187,13 @@ export const useMessages = (selectedChannel: Channel | null, currentUser: UserMe
         supabase.removeChannel(subscription);
       }
     };
-  }, [selectedChannel?.id, currentUser, messages]);
+  }, [selectedChannel?.id]);
 
-  useEffectReact(() => {
-    if (messagesEndRef.current && messages.length > 0 && !messagesLoading) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
     }
-  }, [messages, messagesLoading, messagesEndRef]);
+  }, [messages]);
 
   return {
     messages,
