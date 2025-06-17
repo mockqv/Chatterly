@@ -192,7 +192,7 @@ export default function Home() {
 
         <section className="flex-1 flex flex-col bg-[#222] rounded-r-lg h-full">
           <ChatHeader selectedChannel={selectedChannel} currentUser={currentUser} />
-          
+
           <MessageList
             messages={messages as Message[]}
             messagesLoading={messagesLoading}
@@ -201,10 +201,11 @@ export default function Home() {
             messagesEndRef={messagesEndRef as React.RefObject<HTMLDivElement>}
           />
 
-          {selectedChannel && (
+          {selectedChannel && currentUser && ( // Adicionei a verificação do currentUser aqui por segurança
             <MessageInput
               onSendMessage={handleSendMessage}
               disabled={!selectedChannel}
+              currentUser={currentUser} // << Adicione esta linha
             />
           )}
         </section>

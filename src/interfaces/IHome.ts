@@ -36,3 +36,11 @@ export interface Message {
     profiles: UserMetadata | null;
     user_metadata?: UserMetadata;
 } 
+
+export interface MessageListProps {
+    messages: Message[];
+    messagesLoading: boolean;
+    selectedChannel: Channel | null;
+    currentUser: UserMetadata;
+    messagesEndRef: React.RefObject<HTMLDivElement>;
+  }
