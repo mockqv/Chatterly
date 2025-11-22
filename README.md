@@ -23,11 +23,6 @@ O Chatterly oferece múltiplas opções de login através de provedores populare
   </div>
   <div style="display: flex; align-items: center; gap: 10px;">
     <input type="checkbox" disabled checked style="width: 20px; height: 20px;" />
-    <img src="https://img.icons8.com/?size=100&id=phOKFKYpe00C&format=png&color=ffffff" alt="Twitter Login" style="width: 24px; height: 24px;" />
-    <span>Twitter</span>
-  </div>
-  <div style="display: flex; align-items: center; gap: 10px;">
-    <input type="checkbox" disabled checked style="width: 20px; height: 20px;" />
     <img src="https://cdn.simpleicons.org/discord/24" alt="Discord Login" style="width: 24px; height: 24px;" />
     <span>Discord</span>
   </div>
